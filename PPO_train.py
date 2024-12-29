@@ -54,10 +54,12 @@ def make_env(args):
 def train(path, args):
     env = make_env(args)
     set_seed(args.seed)
+    # single
     # num_actions = env.action_space.n
     # agent = PPOAgent(num_actions)
 
     # Get action space for each agent
+    # multi
     num_actions = env.action_space.nvec  # MultiDiscrete action space
     num_agents = len(num_actions)
     # Create shared networks
@@ -78,22 +80,26 @@ def train(path, args):
         # reset in each episode start
         obs = env.reset()
         env.seed(args.seed)
+        # single
         # image = trans_img(obs[0]['frame'])
         # state = torch.FloatTensor([image])
         # Convert observations for each agent
+        # multi
         states = [torch.FloatTensor([trans_img(obs[i]['frame'])]) for i in range(num_agents)]
 
-        next_obs = obs
 
         if torch.cuda.is_available():
+            # single
             # state = state.cuda()
+            # multi
             states = [s.cuda() for s in states]
 
         eps_reward = 0
         for t in count():
+            # multi
             actions, action_probs = [], []
             # get next_state, reward
-            # action, action_prob = agent.select_action(state, next_obs)
+
             for i in range(num_agents):
                 action, action_prob = agent.select_action(states[i], obs[i])
                 actions.append(action.item())
@@ -104,25 +110,32 @@ def train(path, args):
 
             next_states = [torch.FloatTensor([trans_img(next_obs[i]['frame'])]) for i in range(num_agents)]
             rewards = [reward_func(next_obs[i], scores[i], actions[i]) for i in range(num_agents)]
+            eps_reward += sum(rewards)
 
+            # single
+            # action, action_prob = agent.select_action(state, next_obs)
             # next_obs, score, done, _ = env.step(action.item())
             # next_img = trans_img(next_obs[0]['frame'])
             # next_state = torch.FloatTensor([next_img])
             # reward = reward_func(next_obs, score, action.item())
             # eps_reward += reward
-            eps_reward += sum(rewards)
+
             # reward = torch.FloatTensor([reward])
 
             if torch.cuda.is_available():
+                # single
                 # action = action.cuda()
                 # reward = reward.cuda()
                 # next_state = next_state.cuda()
+                # multi
                 next_states = [s.cuda() for s in next_states]
                 rewards = [torch.FloatTensor([r]).cuda() for r in rewards]
 
             # Store the transition in memory and update agent
             # ['state', 'action', 'log_prob', 'reward', 'next_state']
+            # single
             # agent.memory_buffer.push(state, action, action_prob, reward, next_state)
+            # multi
             for i in range(num_agents):
                 agent.memory_buffer.push(
                     states[i], torch.LongTensor([actions[i]]).cuda(), action_probs[i], rewards[i], next_states[i]
@@ -133,15 +146,11 @@ def train(path, args):
             # if sum(rewards) > 0:
             #     print('in step{}: actions:{}, rewards:{}'.format(t, actions, rewards))
 
-            # if not done:
-            #     state = next_state
-            # else:
-            #     state = None
-            # if done or t > 1500:
-            #     break
             if done or t > 1500:  # Check if all agents are done
                 break
-
+            # single
+            # state = next_state
+            # multi
             states = next_states
 
         reward_list.append(eps_reward)
