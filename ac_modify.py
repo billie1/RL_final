@@ -55,7 +55,9 @@ def reward_func(obs, score, action):
     global last_dist_to_goal
     global player_pos
     global e
+    # single
     # get_obs = GetRawObservations(obs)
+    # multi
     get_obs = GetMutliRawObservations(obs)
     team, pos, ball_direction, player = get_obs.get_ball_info()
     left_team, right_team = get_obs.get_team_position()
