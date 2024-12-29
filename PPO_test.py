@@ -52,45 +52,52 @@ def test(path, args):
     for match in tqdm(range(10), desc="Matches"):
         obs = env.reset()
         env.seed(args.seed)
+        # single
         # image = trans_img(obs[0]['frame'])
         # state = torch.FloatTensor([image])
         # Convert observations for each agent
+        # multi
         states = [torch.FloatTensor([trans_img(obs[i]['frame'])]) for i in range(num_agents)]
-        next_obs = obs
 
         if torch.cuda.is_available():
+            # single
             # state = state.cuda()
+            # multi
             states = [s.cuda() for s in states]
 
         eps_reward = 0
         for t in count():
-            actions, action_probs = [], []
             # get next_state, reward
+            # single
             # action, action_prob = agent.select_action(state, next_obs)
             # next_obs, score, done, _ = env.step(action.item())
             # next_img = trans_img(next_obs[0]['frame'])
             # next_state = torch.FloatTensor([next_img])
             # reward = reward_func(next_obs, score, action.item())
             # eps_reward += reward
+            # multi
+            actions, action_probs = [], []
             for i in range(num_agents):
                 action, action_prob = agent.select_action(states[i], obs[i])
                 actions.append(action.item())
                 action_probs.append(action_prob)
-
             # Execute actions in the environment
             next_obs, scores, done, _ = env.step(actions)
-
             next_states = [torch.FloatTensor([trans_img(next_obs[i]['frame'])]) for i in range(num_agents)]
             rewards = [reward_func(next_obs[i], scores[i], actions[i]) for i in range(num_agents)]
-
             eps_reward += sum(rewards)
+
             if torch.cuda.is_available():
+                # single
                 # next_state = next_state.cuda()
+                # multi
                 next_states = [s.cuda() for s in next_states]
 
             if done or t > 1500:  # Check if all agents are done
                 break
+            # multi
             states = next_states
+            # single
             # state = next_state
         print(match, ": ", eps_reward)
         reward_list.append(eps_reward)
